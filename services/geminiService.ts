@@ -1,15 +1,12 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { SYSTEM_INSTRUCTION } from "../constants";
 import { FeedbackResult } from "../types";
-
-const API_KEY = process.env.API_KEY || "";
 
 export const gradeAnswer = async (questionText: string, studentAnswer: string, schema: any): Promise<FeedbackResult | null> => {
   if (!studentAnswer.trim()) return null;
 
   try {
-    const ai = new GoogleGenAI({ apiKey: API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
     const prompt = `
       Question: ${questionText}
       Marking Scheme: 
@@ -20,7 +17,9 @@ export const gradeAnswer = async (questionText: string, studentAnswer: string, s
 
       Student Answer: "${studentAnswer}"
 
-      Grade this answer strictly according to the rules. Return only valid JSON.
+      Grade this answer strictly according to the rules provided in the system instruction. 
+      Analyze for presence of IU/IS pairs and grammar.
+      Return only valid JSON.
     `;
 
     const response = await ai.models.generateContent({
@@ -42,17 +41,31 @@ export const gradeAnswer = async (questionText: string, studentAnswer: string, s
                 IU2: { type: Type.BOOLEAN },
                 IS2: { type: Type.BOOLEAN },
                 hasGrammarError: { type: Type.BOOLEAN }
-              }
+              },
+              required: ["IU1", "IS1", "IU2", "IS2", "hasGrammarError"]
             }
-          }
+          },
+          required: ["score", "feedback", "breakdown"]
         }
       }
     });
 
-    const result = JSON.parse(response.text);
+    if (!response || !response.text) {
+      throw new Error("Empty response from Gemini");
+    }
+
+    const result = JSON.parse(response.text.trim());
     return result;
   } catch (error) {
     console.error("Error grading answer:", error);
-    return null;
+    // Return a structured error result to avoid crashing the UI
+    return {
+      questionId: 0,
+      score: 0,
+      feedback: "Maaf, ralat berlaku semasa memproses jawapan. Sila cuba sebentar lagi.",
+      breakdown: {
+        IU1: false, IS1: false, IU2: false, IS2: false, hasGrammarError: true
+      }
+    };
   }
 };

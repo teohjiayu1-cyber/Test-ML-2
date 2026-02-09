@@ -1,4 +1,3 @@
-
 export interface Question {
   id: number;
   text: string;
@@ -24,7 +23,10 @@ export interface FeedbackResult {
   };
 }
 
+export type ViewMode = 'landing' | 'grading';
+
 export interface AppState {
+  view: ViewMode;
   answers: Record<number, string>;
   results: Record<number, FeedbackResult | null>;
   loading: Record<number, boolean>;
